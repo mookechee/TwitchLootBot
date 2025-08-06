@@ -88,7 +88,7 @@ elif sys.platform == "darwin":
     print("Contents of 'dist' directory:", list(Path("dist").iterdir()))
 
     # Dynamically check the generated executable file name, excluding .app files
-    exe_path = next((p for p in Path("dist").glob(TwitchLootBot*") if not p.suffix == ".app"), None)
+    exe_path = next((p for p in Path("dist").glob("TwitchLootBot*") if not p.suffix == ".app"), None)
     if exe_path is None:
         raise FileNotFoundError("Generated executable not found in 'dist' directory.")
 
