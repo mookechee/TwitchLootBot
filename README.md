@@ -2,7 +2,7 @@
 
 [![CodeScene Average Code Health](https://codescene.io/projects/69802/status-badges/average-code-health)](https://codescene.io/projects/69802)      [![CodeScene Hotspot Code Health](https://codescene.io/projects/69802/status-badges/hotspot-code-health)](https://codescene.io/projects/69802)  [![CodeScene Missed Goals](https://codescene.io/projects/69802/status-badges/missed-goals)](https://codescene.io/projects/69802)    [![CodeScene System Mastery](https://codescene.io/projects/69802/status-badges/system-mastery)](https://codescene.io/projects/69802)
 
-# Twitch Drops Miner
+# TwitchLootBot
 
 This application allows you to AFK mine timed Twitch drops, without having to worry about switching channels when the one you were watching goes offline, claiming the drops, or even receiving the stream data itself. This helps you save on bandwidth and hassle.
 

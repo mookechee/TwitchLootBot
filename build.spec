@@ -75,7 +75,7 @@ if sys.platform == "linux":
         }
     }
 elif sys.platform == "darwin":
-    app_name = "Twitch Drops Miner (by DevilXD).app"
+    app_name = "TwitchLootBot"
     app_dir = Path("dist") / app_name
 
     # Create .app structure manually
@@ -88,7 +88,7 @@ elif sys.platform == "darwin":
     print("Contents of 'dist' directory:", list(Path("dist").iterdir()))
 
     # Dynamically check the generated executable file name, excluding .app files
-    exe_path = next((p for p in Path("dist").glob("Twitch Drops Miner (by DevilXD)*") if not p.suffix == ".app"), None)
+    exe_path = next((p for p in Path("dist").glob(TwitchLootBot*") if not p.suffix == ".app"), None)
     if exe_path is None:
         raise FileNotFoundError("Generated executable not found in 'dist' directory.")
 
@@ -96,7 +96,7 @@ elif sys.platform == "darwin":
     print("Matched executable path:", exe_path)
 
     # Move the executable to the .app bundle
-    exe_path.rename(app_dir / "Contents" / "MacOS" / "Twitch Drops Miner (by DevilXD)")
+    exe_path.rename(app_dir / "Contents" / "MacOS" / "TwitchLootBot")
 
     # Add Info.plist for macOS app metadata
     plist_content = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -104,13 +104,13 @@ elif sys.platform == "darwin":
 <plist version=\"1.0\">
 <dict>
     <key>CFBundleName</key>
-    <string>Twitch Drops Miner (by DevilXD)</string>
+    <string>TwitchLootBot</string>
     <key>CFBundleExecutable</key>
-    <string>Twitch Drops Miner (by DevilXD)</string>
+    <string>TwitchLootBot</string>
     <key>CFBundleIconFile</key>
     <string>pickaxe.icns</string>
     <key>CFBundleIdentifier</key>
-    <string>com.devilxd.twitchdropsminer</string>
+    <string>com.mookechee.twitchlootbot</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>CFBundlePackageType</key>
@@ -185,5 +185,5 @@ exe = EXE(
     icon=str(icon_path) if sys.platform == "darwin" else "icons/pickaxe.ico",
     bootloader_ignore_signals=False,
     disable_windowed_traceback=False,
-    name="Twitch Drops Miner (by DevilXD)",
+    name="TwitchLootBot",
 )
