@@ -1,0 +1,194 @@
+# Azure DevOps Pipeline for TwitchLootBot
+# 仅支持 x86_64 架构，产物上传到 Azure Artifacts
+trigger:
+  branches:
+    include:
+      - main
+      - dev
+pr:
+  branches:
+    include:
+      - main
+      - dev
+
+variables:
+  PYTHON_VERSION: '3.10'
+
+stages:
+- stage: Validate
+  displayName: 'Validate Language Files'
+  jobs:
+  - job: Validate
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(PYTHON_VERSION)'
+    - script: |
+        failed=()
+        for file in lang/*.json; do
+          if err=$(python -m json.tool "$file" 2>&1 >/dev/null); then
+            echo "[OK] $file"
+          else
+            echo "[ERROR] $file $err"
+            failed+=("$file")
+          fi
+        done
+        if [ ${#failed[@]} -gt 0 ]; then
+          echo -e "\nFailed to validate the following language file(s): ${failed[@]}"
+          exit 1
+        fi
+      displayName: 'Validate language files'
+
+- stage: Windows
+  displayName: 'Build Windows Executable'
+  dependsOn: Validate
+  jobs:
+  - job: Windows
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - checkout: self
+    - powershell: |
+        $sha_short = git rev-parse --short HEAD
+        echo "##vso[task.setvariable variable=sha_short]$sha_short"
+      displayName: 'Set up variables'
+    - powershell: |
+        (Get-Content version.py) -replace '^__version__\s*=\s*"[^"]+', "$($matches[0]).$env:sha_short" | Set-Content version.py
+      displayName: 'Append git revision to project version'
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(PYTHON_VERSION)'
+    - script: |
+        python -m pip install wheel
+        python -m pip install -r requirements.txt
+      displayName: 'Install project dependencies'
+    - powershell: |
+        Invoke-WebRequest -Uri https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-win64.zip -OutFile $env:TEMP\upx.zip
+        Expand-Archive -LiteralPath $env:TEMP\upx.zip -DestinationPath $env:TEMP
+        Move-Item -Path (Get-ChildItem $env:TEMP\upx-* | Select-Object -First 1).FullName -Destination $env:TEMP\upx
+        echo "$env:TEMP\upx" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+      displayName: 'Install UPX'
+    - script: |
+        python -m pip install pyinstaller
+      displayName: 'Install PyInstaller'
+    - script: |
+        pyinstaller build.spec
+      displayName: 'Create portable executable'
+    - powershell: |
+        $FolderName = 'TwitchLootBot'
+        New-Item $FolderName -ItemType Directory
+        Copy-Item dist\*.exe $FolderName
+        Copy-Item manual.txt $FolderName
+        Compress-Archive -Path $FolderName -DestinationPath TwitchLootBot.Windows.zip
+      displayName: 'Create release folder'
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'TwitchLootBot.Windows.zip'
+        ArtifactName: 'TwitchLootBot.Windows'
+        publishLocation: 'Container'
+
+- stage: LinuxPyInstaller
+  displayName: 'Build Linux Executable (PyInstaller)'
+  dependsOn: Validate
+  jobs:
+  - job: LinuxPyInstaller
+    pool:
+      vmImage: 'ubuntu-22.04'
+    steps:
+    - checkout: self
+    - script: |
+        sha_short=$(git rev-parse --short HEAD)
+        echo "##vso[task.setvariable variable=sha_short]$sha_short"
+      displayName: 'Set up variables'
+    - script: |
+        sed -ri "s/^__version__\s*=\s*\"[^\"]+/\0.$(sha_short)/" version.py
+      displayName: 'Append git revision to project version'
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(PYTHON_VERSION)'
+    - script: |
+        sudo apt update
+        sudo apt install -y libgirepository1.0-dev gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1 python3-tk
+      displayName: 'Install system dependencies'
+    - script: |
+        python3 -m pip install wheel
+        python3 -m pip install -r requirements.txt
+      displayName: 'Install project dependencies'
+    - script: |
+        python3 -m pip install pyinstaller
+      displayName: 'Install PyInstaller'
+    - script: |
+        mkdir -p /tmp/libXft
+        cd /tmp/libXft
+        curl -fL https://xorg.freedesktop.org/releases/individual/lib/libXft-2.3.9.tar.xz -o libXft.tar.xz
+        sha256sum libXft.tar.xz
+        tar xvf libXft.tar.xz
+        cd libXft-*
+        ./configure --prefix=/tmp/libXft --sysconfdir=/etc --disable-static
+        make
+        make install-strip
+      displayName: 'Build a recent version of libXft'
+    - script: |
+        LD_LIBRARY_PATH=/tmp/libXft/lib xvfb-run --auto-servernum pyinstaller build.spec
+      displayName: 'Create portable executable'
+    - script: |
+        cat build/build/warn-build.txt || true
+      displayName: 'Show PyInstaller warnings'
+    - script: |
+        folder='TwitchLootBot'
+        mkdir "$folder"
+        cp manual.txt dist/* "$folder"
+        7z a "Twitch.Loot.Bot.Linux.PyInstaller-x86_64.zip" "$folder"
+      displayName: 'Create release folder'
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'Twitch.Loot.Bot.Linux.PyInstaller-x86_64.zip'
+        ArtifactName: 'Twitch.Loot.Bot.Linux.PyInstaller-x86_64'
+        publishLocation: 'Container'
+
+- stage: LinuxAppImage
+  displayName: 'Build Linux Executable (AppImage)'
+  dependsOn: Validate
+  jobs:
+  - job: LinuxAppImage
+    pool:
+      vmImage: 'ubuntu-22.04'
+    steps:
+    - checkout: self
+    - script: |
+        app_version=$(python3 -c 'from version import __version__ as v; print(v)')
+        sha_short=$(git rev-parse --short HEAD)
+        echo "##vso[task.setvariable variable=app_version]$app_version"
+        echo "##vso[task.setvariable variable=sha_short]$sha_short"
+      displayName: 'Set up variables'
+    - script: |
+        sed -ri "s/^__version__\s*=\s*\"[^\"]+/\0.$(sha_short)/" version.py
+      displayName: 'Append git revision to project version'
+    - script: |
+        sudo apt update
+        sudo apt install -y libgirepository1.0-dev gir1.2-ayatanaappindicator3-0.1 libayatana-appindicator3-1
+      displayName: 'Install system dependencies'
+    - script: |
+        python3 -m pip install git+https://github.com/AppImageCrafters/appimage-builder.git@e995e8edcc227d14524cf39f9824c238f9435a22
+      displayName: 'Install appimage-builder'
+    - script: |
+        export ARCH=x86_64
+        export ARCH_APT=amd64
+        export APP_VERSION=$(app_version).$(sha_short)
+        export PYTHON_VERSION=$(PYTHON_VERSION)
+        appimage-builder --recipe appimage/AppImageBuilder.yml
+      displayName: 'Create AppImage'
+    - script: |
+        folder='TwitchLootBot'
+        mkdir "$folder"
+        cp *.AppImage manual.txt "$folder"
+        7z a "Twitch.Loot.Bot.Linux.AppImage-x86_64.zip" "$folder"
+      displayName: 'Create release folder'
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: 'Twitch.Loot.Bot.Linux.AppImage-x86_64.zip'
+        ArtifactName: 'Twitch.Loot.Bot.Linux.AppImage-x86_64'
+        publishLocation: 'Container'
