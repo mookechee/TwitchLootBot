@@ -27,8 +27,10 @@ fi
 
 # Run PyInstaller with the specified build spec file
 echo
-echo "Building..."
-"$dirpath/env/bin/pyinstaller" "$dirpath/build.spec"
+echo
+echo "Building .app for macOS..."
+# 生成 .app 文件，假设 main.py 为入口文件，可根据实际情况调整
+"$dirpath/env/bin/pyinstaller" --windowed --onefile --name "TwitchLootBot" --osx-bundle-identifier "com.twitch.lootbot" "$dirpath/main.py"
 if [ $? -ne 0 ]; then
     echo
     echo "PyInstaller build failed."
@@ -37,7 +39,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo
+
 echo "Build completed successfully."
 echo
 read -p "Press any key to continue..."
