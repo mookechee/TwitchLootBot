@@ -1,45 +1,41 @@
 #!/usr/bin/env bash
 
-dirpath=$(dirname "$(readlink -f "$0")")
+# 获取脚本所在目录
+DIRPATH=$(dirname "$(readlink -f "$0")")
 
-# Check if the virtual environment exists
-if [ ! -d "$dirpath/env" ]; then
-    echo
-    echo "No virtual environment found! Run setup_env.sh to set it up first."
-    echo
-    read -p "Press any key to continue..."
+# 检查虚拟环境是否存在
+if [ ! -d "$DIRPATH/env" ]; then
+    echo "\n[错误] 未找到虚拟环境！请先运行 setup_env.sh 设置环境。\n"
     exit 1
 fi
 
-# Check if PyInstaller is installed in the virtual environment
-if [ ! -f "$dirpath/env/bin/pyinstaller" ]; then
-    echo
-    echo "Installing PyInstaller..."
-    "$dirpath/env/bin/pip" install pyinstaller
+# 检查 PyInstaller 是否已安装
+if [ ! -f "$DIRPATH/env/bin/pyinstaller" ]; then
+    echo "\n[信息] 正在安装 PyInstaller...\n"
+    "$DIRPATH/env/bin/pip" install pyinstaller
     if [ $? -ne 0 ]; then
-        echo
-        echo "Failed to install PyInstaller."
-        echo
-        read -p "Press any key to continue..."
+        echo "\n[错误] PyInstaller 安装失败。\n"
         exit 1
     fi
 fi
 
-# Run PyInstaller with the specified build spec file
-echo
-echo
-echo "Building .app for macOS..."
-# 生成 .app 文件，假设 main.py 为入口文件，可根据实际情况调整
-"$dirpath/env/bin/pyinstaller" --windowed --onefile --name "TwitchLootBot" --osx-bundle-identifier "com.twitch.lootbot" "$dirpath/main.py"
+# 打包 macOS 应用
+echo "\n[信息] 正在为 macOS 构建 .app 文件...\n"
+"$DIRPATH/env/bin/pyinstaller" \
+    --windowed \
+    --onedir \
+    --noconfirm \
+    --name "TwitchLootBot" \
+    --osx-bundle-identifier "com.twitch.lootbot" \
+    --icon "$DIRPATH/icons/pickaxe.icns" \
+    --add-data "$DIRPATH/icons:icons" \
+    --add-data "$DIRPATH/lang:lang" \
+    "$DIRPATH/main.py"
+
 if [ $? -ne 0 ]; then
-    echo
-    echo "PyInstaller build failed."
-    echo
-    read -p "Press any key to continue..."
+    echo "\n[错误] PyInstaller 构建失败。\n"
     exit 1
 fi
 
-
-echo "Build completed successfully."
-echo
-read -p "Press any key to continue..."
+# 打包完成
+echo "\n[成功] 构建完成！生成的 .app 文件位于 dist/ 目录下。\n"
